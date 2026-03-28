@@ -25,7 +25,11 @@ import SettingsPage from "./pages/SettingsPageV2";
 import WebhookTestPage from "./pages/WebhookTestPage";
 import NgrokWebhookPage from "./pages/NgrokWebhookPage";
 import WebhookMonitor from "./pages/WebhookMonitor";
-import AdminMasterPage from "./pages/AdminMasterPage";
+import AdminMasterClinicsPage from "./pages/AdminMasterClinicsPage";
+import AdminMasterClinicDetailPage from "./pages/AdminMasterClinicDetailPage";
+import ClinicasListPage from "./pages/ClinicasListPage";
+import ClinicasDetalhesPage from "./pages/ClinicasDetalhesPage";
+import ClinicasEditarPage from "./pages/ClinicasEditarPage";
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -62,7 +66,11 @@ function App() {
             <Route path="/reports" element={<PrivateRoute><ReportsPage /></PrivateRoute>} />
             <Route path="/revenue" element={<PrivateRoute><RevenuePage /></PrivateRoute>} />
             <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
-          <Route path="/admin-master" element={<PrivateRoute><AdminMasterPage /></PrivateRoute>} />
+          <Route path="/admin-master" element={<PrivateRoute><AdminMasterClinicsPage /></PrivateRoute>} />
+          <Route path="/admin-master/clinics/:clinicId" element={<PrivateRoute><AdminMasterClinicDetailPage /></PrivateRoute>} />
+          <Route path="/clinicas" element={<PrivateRoute><ClinicasListPage /></PrivateRoute>} />
+          <Route path="/clinicas/detalhes/:id" element={<PrivateRoute><ClinicasDetalhesPage /></PrivateRoute>} />
+          <Route path="/clinicas/editar/:id" element={<PrivateRoute><ClinicasEditarPage /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
             <Route path="/webhook-test" element={<PrivateRoute><WebhookTestPage /></PrivateRoute>} />
             <Route path="/tunnel-webhook" element={<PrivateRoute><NgrokWebhookPage /></PrivateRoute>} />

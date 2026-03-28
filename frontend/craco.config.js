@@ -73,6 +73,34 @@ const webpackConfig = {
   },
 };
 
+webpackConfig.jest = {
+  configure: (jestConfig) => {
+    jestConfig.moduleNameMapper = {
+      ...(jestConfig.moduleNameMapper || {}),
+      '^@/(.*)$': '<rootDir>/src/$1',
+    };
+    jestConfig.collectCoverageFrom = [
+      "src/pages/ClinicasListPage.js",
+      "src/components/PanelGrid.js",
+    ];
+    jestConfig.coverageThreshold = {
+      "src/pages/ClinicasListPage.js": {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
+      "src/components/PanelGrid.js": {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
+    };
+    return jestConfig;
+  },
+};
+
 // Only add babel plugin if visual editing is enabled
 if (config.enableVisualEdits) {
   webpackConfig.babel = {

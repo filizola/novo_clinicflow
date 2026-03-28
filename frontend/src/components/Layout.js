@@ -43,13 +43,13 @@ export default function Layout({ children }) {
     { path: "/reports", icon: FileBarChart, label: "Relatórios", roles: ["admin"] },
     { path: "/revenue", icon: DollarSign, label: "Faturamento", roles: ["admin"] },
     { path: "/users", icon: Users, label: "Usuários", roles: ["admin"] },
-    { path: "/admin-master", icon: Building2, label: "Admin Master", roles: ["admin"] },
+    { path: "/clinicas", icon: Building2, label: "Clínicas", roles: ["admin"] },
     { path: "/settings", icon: Settings, label: "Configurações", roles: ["admin"] },
   ];
 
   // Filtra menus baseado no tipo de usuário
   const menuItems = allMenuItems.filter(item => item.roles.includes(userType)).filter((item) => {
-    if (item.path === "/admin-master") return Boolean(isMaster);
+    if (item.path === "/clinicas") return Boolean(isMaster);
     return true;
   });
 

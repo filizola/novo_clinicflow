@@ -736,13 +736,49 @@ async def create_clinic(data: ClinicCreate, current_user: dict = Depends(get_cur
 @api_router.get("/master/clinics", response_model=List[dict])
 async def list_clinics(current_user: dict = Depends(get_current_user)):
     _require_master_admin(current_user)
-    clinics = await db.clinics.find({}, {"_id": 0}).to_list(10000)
+    clinics = await db.clinics.find(
+        {},
+        {
+            "_id": 0,
+            "id": 1,
+            "nome_fantasia": 1,
+            "cnpj": 1,
+            "status": 1,
+            "created_at": 1,
+        },
+    ).to_list(10000)
+    out: list[dict] = []
     for c in clinics:
-        if isinstance(c.get("created_at"), str):
-            c["created_at"] = datetime.fromisoformat(c["created_at"])
-        if isinstance(c.get("updated_at"), str):
-            c["updated_at"] = datetime.fromisoformat(c["updated_at"])
-    return clinics
+        created_at = c.get("created_at")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+        out.append(
+            {
+                "id": c.get("id"),
+                "nome": c.get("nome_fantasia"),
+                "cnpj": c.get("cnpj"),
+                "status": c.get("status"),
+                "created_at": created_at,
+            }
+        )
+    return out
+
+
+@api_router.get("/master/clinics/{clinic_id}", response_model=dict)
+async def get_clinic_detail(clinic_id: str, current_user: dict = Depends(get_current_user)):
+    _require_master_admin(current_user)
+    clinic = await db.clinics.find_one({"id": clinic_id}, {"_id": 0})
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    users = await tenant_find(
+        db.users,
+        clinic_id=clinic_id,
+        base_filter={},
+        projection={"_id": 0, "password_hash": 0},
+        shadow_default_clinic_id=SHADOW_DEFAULT_CLINIC_ID,
+    ).to_list(10000)
+    return {"clinic": clinic, "users": users}
 
 
 @api_router.put("/master/clinics/{clinic_id}")
