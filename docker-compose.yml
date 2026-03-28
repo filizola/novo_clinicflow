@@ -1,0 +1,60 @@
+services:
+  mongodb:
+    build:
+      context: .
+      dockerfile: docker/mongodb/Dockerfile
+    image: clinicflow-mongodb-mongodb:local
+    container_name: clinicflow-mongodb-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: clinicflow
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - clinicflow
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    image: clinicflow-mongodb-backend:local
+    container_name: clinicflow-mongodb-backend
+    depends_on:
+      - mongodb
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      MONGO_URL: mongodb://mongodb:27017
+      DB_NAME: clinicflow
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_MINUTES: "10080"
+      DEFAULT_CLINIC_ID: 00000000-0000-0000-0000-000000000000
+      MULTITENANT_ENFORCE: "0"
+      MASTER_ADMIN_EMAILS: admin@cliniflow.com
+      ALLOW_INSECURE_JWT_SECRET: "1"
+    networks:
+      - clinicflow
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    image: clinicflow-mongodb-frontend:local
+    container_name: clinicflow-mongodb-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - clinicflow
+
+volumes:
+  mongodb_data:
+
+networks:
+  clinicflow:
+    driver: bridge
+
