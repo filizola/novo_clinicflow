@@ -193,6 +193,7 @@ class UserRegister(BaseModel):
     is_admin: bool = False
     user_type: str = "consultor"  # admin, consultor, profissional
     professional_id: Optional[str] = None
+    clinic_id: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -605,10 +606,13 @@ async def get_current_user(request: Request, credentials: HTTPAuthorizationCrede
 async def register(user_data: UserRegister):
     if db is None:
         raise HTTPException(status_code=503, detail="Database unavailable")
+        
+    target_clinic_id = user_data.clinic_id if user_data.clinic_id else DEFAULT_CLINIC_ID
+        
     # Check if user exists
     existing_user = await tenant_find_one(
         db.users,
-        clinic_id=DEFAULT_CLINIC_ID,
+        clinic_id=target_clinic_id,
         base_filter={"email": user_data.email},
         projection={"_id": 0},
         shadow_default_clinic_id=SHADOW_DEFAULT_CLINIC_ID,
@@ -618,7 +622,7 @@ async def register(user_data: UserRegister):
     
     # Create user
     user = User(
-        clinic_id=DEFAULT_CLINIC_ID,
+        clinic_id=target_clinic_id,
         name=user_data.name,
         email=user_data.email,
         password_hash=hash_password(user_data.password),
@@ -630,7 +634,10 @@ async def register(user_data: UserRegister):
     
     doc = user.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
-    await tenant_insert_one(db.users, clinic_id=DEFAULT_CLINIC_ID, doc=doc)
+    if target_clinic_id != DEFAULT_CLINIC_ID:
+        doc["clinics"] = [{"clinicId": target_clinic_id}]
+        
+    await tenant_insert_one(db.users, clinic_id=target_clinic_id, doc=doc)
     
     # Create token
     access_token = create_access_token(doc)
@@ -843,6 +850,7 @@ class UserUpdate(BaseModel):
     user_type: Optional[str] = None
     professional_id: Optional[str] = None
     is_admin: Optional[bool] = None
+    clinic_id: Optional[str] = None
 
 @api_router.get("/users", response_model=List[dict])
 async def get_users(current_user: dict = Depends(get_current_user)):
@@ -866,18 +874,28 @@ async def get_users(current_user: dict = Depends(get_current_user)):
 
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(get_current_user)):
+    print(f"[DEBUG] PUT /users/{user_id} - Incoming data: {data.model_dump()}")
+    
     # Only admins can update users
     if not current_user.get("role", {}).get("is_admin", False):
         raise HTTPException(status_code=403, detail="Not authorized")
     
     clinic_id = current_user["clinic_id"]
-    user = await tenant_find_one(
-        db.users,
-        clinic_id=clinic_id,
-        base_filter={"id": user_id},
-        projection={"_id": 0},
-        shadow_default_clinic_id=SHADOW_DEFAULT_CLINIC_ID,
-    )
+    
+    # Se o usuário atual for ADMIN_MASTER, vamos buscar o usuário independente do clinic_id do tenant
+    is_master = current_user.get("roles") and "ADMIN_MASTER" in current_user.get("roles")
+    
+    if is_master:
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    else:
+        user = await tenant_find_one(
+            db.users,
+            clinic_id=clinic_id,
+            base_filter={"id": user_id},
+            projection={"_id": 0},
+            shadow_default_clinic_id=SHADOW_DEFAULT_CLINIC_ID,
+        )
+        
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -893,15 +911,48 @@ async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depen
     if data.is_admin is not None:
         update_data["role.is_admin"] = data.is_admin
         update_data["role.is_attendant"] = not data.is_admin
+        
+    # We must explicitly update clinic_id (even if it's changing it to None)
+    # However, tenant_update_one strips clinic_id from updates.
+    # To bypass this for this specific route, we'll update the user directly if needed.
     
+    # Se na requisição a propriedade clinic_id foi setada explicitamente, nós atualizamos
+    if hasattr(data, 'clinic_id') and data.clinic_id is not None:
+        update_data["clinic_id"] = data.clinic_id
+        update_data["clinics"] = [{"clinicId": data.clinic_id}]
+    elif hasattr(data, 'clinic_id') and data.clinic_id is None and "clinic_id" in data.model_dump(exclude_unset=True):
+        update_data["clinic_id"] = None
+        update_data["clinics"] = []
+
+    print(f"[DEBUG] PUT /users/{user_id} - update_data final: {update_data}")
+
     if update_data:
-        await tenant_update_one(
-            db.users,
-            clinic_id=clinic_id,
-            base_filter={"id": user_id},
-            update={"$set": update_data},
-            shadow_default_clinic_id=SHADOW_DEFAULT_CLINIC_ID,
-        )
+        # Update user details excluding clinic_id using tenant_update_one to keep standard flow
+        standard_update = {k: v for k, v in update_data.items() if k != "clinic_id"}
+        if standard_update:
+            if is_master:
+                result = await db.users.update_one(
+                    {"id": user_id},
+                    {"$set": standard_update}
+                )
+                print(f"[DEBUG] is_master update_one result: matched_count={result.matched_count}, modified_count={result.modified_count}")
+            else:
+                await tenant_update_one(
+                    db.users,
+                    clinic_id=clinic_id,
+                    base_filter={"id": user_id},
+                    update={"$set": standard_update},
+                    shadow_default_clinic_id=SHADOW_DEFAULT_CLINIC_ID,
+                )
+        
+        # If clinic_id needs to be updated, bypass tenant restrictions
+        if "clinic_id" in update_data:
+            print(f"[DEBUG] Executing direct update for clinic_id: {update_data['clinic_id']}")
+            result = await db.users.update_one(
+                {"id": user_id},
+                {"$set": {"clinic_id": update_data["clinic_id"]}}
+            )
+            print(f"[DEBUG] update_one result: matched_count={result.matched_count}, modified_count={result.modified_count}")
     
     return {"message": "User updated successfully"}
 

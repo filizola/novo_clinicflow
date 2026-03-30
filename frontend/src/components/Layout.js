@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
+import { hasAdminMasterAccess } from "../utils/roles";
 import { 
   LayoutDashboard, MessageSquare, Calendar, Users, 
   ClipboardList, UserPlus, Briefcase, DoorOpen, 
@@ -29,6 +30,8 @@ export default function Layout({ children }) {
     navigate("/login");
   };
 
+  const isAdminMaster = hasAdminMasterAccess(user);
+
   // Define menus baseado no tipo de usuário
   const allMenuItems = [
     { path: "/", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "consultor", "profissional"] },
@@ -42,13 +45,15 @@ export default function Layout({ children }) {
     { path: "/rooms", icon: DoorOpen, label: "Salas", roles: ["admin"] },
     { path: "/reports", icon: FileBarChart, label: "Relatórios", roles: ["admin"] },
     { path: "/revenue", icon: DollarSign, label: "Faturamento", roles: ["admin"] },
-    { path: "/users", icon: Users, label: "Usuários", roles: ["admin"] },
-    { path: "/clinicas", icon: Building2, label: "Clínicas", roles: ["admin"] },
+    { path: "/users", icon: Users, label: "Usuários", roles: ["admin"], requiresAdminMaster: true },
+    { path: "/clinicas", icon: Building2, label: "Clínicas", roles: ["admin"], requiresAdminMaster: true },
     { path: "/settings", icon: Settings, label: "Configurações", roles: ["admin"] },
   ];
 
-  // Filtra menus baseado no tipo de usuário
-  const menuItems = allMenuItems.filter(item => item.roles.includes(userType)).filter((item) => {
+  // Filtra menus baseado no tipo de usuário e permissões específicas
+  const menuItems = allMenuItems.filter(item => {
+    if (!item.roles.includes(userType)) return false;
+    if (item.requiresAdminMaster && !isAdminMaster) return false;
     if (item.path === "/clinicas") return Boolean(isMaster);
     return true;
   });

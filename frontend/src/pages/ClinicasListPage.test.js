@@ -75,7 +75,7 @@ describe("ClinicasListPage", () => {
     jest.useRealTimers();
   });
 
-  test("carrega apenas a lista de clínicas no mount", async () => {
+  test("carrega apenas a lista de clinicas no mount", async () => {
     api.get.mockResolvedValueOnce({ data: makeClinics(3) });
 
     await act(async () => {
@@ -87,7 +87,7 @@ describe("ClinicasListPage", () => {
     expect(container.textContent).toContain("Clinica 01");
   });
 
-  test("não carrega clínicas quando não é ADMIN_MASTER", async () => {
+  test("nao carrega clinicas quando nao e ADMIN_MASTER", async () => {
     mockUseTenant.mockReturnValueOnce({ isMaster: false });
     api.get.mockResolvedValueOnce({ data: makeClinics(1) });
 
@@ -176,7 +176,7 @@ describe("ClinicasListPage", () => {
     expect(rows()[0]).toContain("Beta");
   });
 
-  test("ordenação lida com nomes iguais", async () => {
+  test("ordenacao lida com nomes iguais", async () => {
     api.get.mockResolvedValueOnce({ data: [{ id: "1", nome: "Alpha", cnpj: "1", status: "active" }, { id: "2", nome: "Alpha", cnpj: "2", status: "active" }] });
 
     await act(async () => {
@@ -204,7 +204,7 @@ describe("ClinicasListPage", () => {
     expect(container.querySelectorAll("tbody tr").length).toBe(20);
   });
 
-  test("exibe estado vazio quando não há resultados", async () => {
+  test("exibe estado vazio quando nao ha resultados", async () => {
     api.get.mockResolvedValueOnce({ data: [] });
 
     await act(async () => {
@@ -251,7 +251,7 @@ describe("ClinicasListPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/clinicas/editar/c1");
   });
 
-  test("abre modal de cadastro e cria clínica", async () => {
+  test("abre modal de cadastro e cria clinica", async () => {
     api.get.mockResolvedValueOnce({ data: [] });
     api.post.mockResolvedValueOnce({ data: { id: "new1" } });
 
@@ -268,9 +268,9 @@ describe("ClinicasListPage", () => {
       const requiredInputs = Array.from(document.querySelectorAll("input"))
         .filter((i) => i.required)
         .filter((i) => i.id !== "clinicas-search");
-      requiredInputs[0].value = "Clínica Nova";
+      requiredInputs[0].value = "Clinica Nova";
       requiredInputs[0].dispatchEvent(new Event("input", { bubbles: true }));
-      requiredInputs[1].value = "Clínica Nova LTDA";
+      requiredInputs[1].value = "Clinica Nova LTDA";
       requiredInputs[1].dispatchEvent(new Event("input", { bubbles: true }));
       requiredInputs[2].value = "00000000000000";
       requiredInputs[2].dispatchEvent(new Event("input", { bubbles: true }));
@@ -298,9 +298,9 @@ describe("ClinicasListPage", () => {
 
     act(() => {
       const requiredInputs = Array.from(document.querySelectorAll("input")).filter((i) => i.required).filter((i) => i.id !== "clinicas-search");
-      requiredInputs[0].value = "Clínica Nova";
+      requiredInputs[0].value = "Clinica Nova";
       requiredInputs[0].dispatchEvent(new Event("input", { bubbles: true }));
-      requiredInputs[1].value = "Clínica Nova LTDA";
+      requiredInputs[1].value = "Clinica Nova LTDA";
       requiredInputs[1].dispatchEvent(new Event("input", { bubbles: true }));
       requiredInputs[2].value = "00000000000000";
       requiredInputs[2].dispatchEvent(new Event("input", { bubbles: true }));
@@ -327,9 +327,9 @@ describe("ClinicasListPage", () => {
 
     act(() => {
       const requiredInputs = Array.from(document.querySelectorAll("input")).filter((i) => i.required).filter((i) => i.id !== "clinicas-search");
-      requiredInputs[0].value = "Clínica Nova";
+      requiredInputs[0].value = "Clinica Nova";
       requiredInputs[0].dispatchEvent(new Event("input", { bubbles: true }));
-      requiredInputs[1].value = "Clínica Nova LTDA";
+      requiredInputs[1].value = "Clinica Nova LTDA";
       requiredInputs[1].dispatchEvent(new Event("input", { bubbles: true }));
       requiredInputs[2].value = "00000000000000";
       requiredInputs[2].dispatchEvent(new Event("input", { bubbles: true }));

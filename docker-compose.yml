@@ -6,7 +6,7 @@ services:
     image: clinicflow-mongodb-mongodb:local
     container_name: clinicflow-mongodb-mongodb
     ports:
-      - "27017:27017"
+      - "27018:27017"
     environment:
       MONGO_INITDB_DATABASE: clinicflow
     volumes:

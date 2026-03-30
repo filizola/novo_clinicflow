@@ -1,24 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { AlertCircle, Save, X } from "lucide-react";
 import Layout from "../components/Layout";
 import api from "../services/api";
 import { useTenant } from "../contexts/TenantContext";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ChevronLeft, Save } from "lucide-react";
+import ClinicForm, { ClinicFormFooter } from "../components/clinic-form/ClinicForm";
+import PageHeader from "../components/clinic-list/PageHeader";
+import EmptyState from "../components/clinic-list/EmptyState";
+import Button from "../components/clinic-form/Button";
+import { emptyClinicForm, normalizeClinicForm } from "../components/clinic-form/clinicFormState";
 
-const emptyAddress = {
-  cep: "",
-  logradouro: "",
-  numero: "",
-  complemento: "",
-  bairro: "",
-  cidade: "",
-  estado: "",
-  pais: "BR"
-};
+import { unmask } from "../utils/masks";
 
 export default function ClinicasEditarPage() {
   const navigate = useNavigate();
@@ -26,33 +19,20 @@ export default function ClinicasEditarPage() {
   const { isMaster } = useTenant();
 
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    nome_fantasia: "",
-    razao_social: "",
-    cnpj: "",
-    telefone: "",
-    email: "",
-    status: "active",
-    endereco: { ...emptyAddress }
-  });
+  const [error, setError] = useState("");
+  const [form, setForm] = useState(emptyClinicForm);
 
   const loadClinic = async () => {
     if (!id) return;
     setLoading(true);
+    setError("");
     try {
       const res = await api.get(`/master/clinics/${id}`);
-      const clinic = res.data?.clinic || {};
-      setForm({
-        nome_fantasia: clinic.nome_fantasia || "",
-        razao_social: clinic.razao_social || "",
-        cnpj: clinic.cnpj || "",
-        telefone: clinic.telefone || "",
-        email: clinic.email || "",
-        status: clinic.status || "active",
-        endereco: { ...emptyAddress, ...(clinic.endereco || {}) }
-      });
+      setForm(normalizeClinicForm(res.data?.clinic || {}));
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Erro ao carregar clínica");
+      const message = e.response?.data?.detail || "Erro ao carregar clínica";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -67,8 +47,19 @@ export default function ClinicasEditarPage() {
     e.preventDefault();
     if (!id) return;
     setLoading(true);
+
+    const payload = {
+      ...form,
+      cnpj: unmask(form.cnpj),
+      telefone: unmask(form.telefone),
+      endereco: {
+        ...form.endereco,
+        cep: unmask(form.endereco?.cep)
+      }
+    };
+
     try {
-      await api.put(`/master/clinics/${id}`, form);
+      await api.put(`/master/clinics/${id}`, payload);
       toast.success("Clínica atualizada");
       navigate(`/clinicas/detalhes/${id}`);
     } catch (e2) {
@@ -78,12 +69,20 @@ export default function ClinicasEditarPage() {
     }
   };
 
+  const updateClinicField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateAddressField = (key, value) => {
+    setForm((prev) => ({ ...prev, endereco: { ...(prev.endereco || {}), [key]: value } }));
+  };
+
   if (!isMaster) {
     return (
       <Layout>
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h1 className="text-2xl font-bold text-gray-900">Clínicas</h1>
-          <p className="text-gray-600 mt-2">Acesso restrito a ADMIN_MASTER.</p>
+        <div className="mx-auto max-w-4xl rounded-2xl bg-white p-6 shadow-md">
+          <h1 className="text-2xl font-semibold text-gray-800">Clínicas</h1>
+          <p className="mt-2 text-gray-600">Acesso restrito a ADMIN_MASTER.</p>
         </div>
       </Layout>
     );
@@ -91,97 +90,63 @@ export default function ClinicasEditarPage() {
 
   return (
     <Layout>
-      <div>
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="btn-secondary" onClick={() => navigate(`/clinicas/detalhes/${id}`)} disabled={loading}>
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900">Editar Clínica</h1>
-              <p className="text-gray-600 mt-1">{id}</p>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <PageHeader
+          badge="Gestao de Clinicas"
+          title="Editar clinica"
+          description={id ? `Atualize os dados da unidade ${id} mantendo o mesmo padrao visual do cadastro.` : "Atualize os dados da unidade mantendo o mesmo padrao visual do cadastro."}
+        />
+
+        {error ? (
+          <section className="rounded-2xl bg-white shadow-md">
+            <EmptyState
+              icon={AlertCircle}
+              title="Nao foi possivel carregar a clinica"
+              description={error}
+              action={
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button variant="secondary" onClick={() => navigate(`/clinicas/detalhes/${id}`)} disabled={loading}>
+                    Voltar
+                  </Button>
+                  <Button onClick={loadClinic} disabled={loading}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              }
+            />
+          </section>
+        ) : loading && !form?.nome_fantasia && !form?.razao_social ? (
+          <div className="mx-auto max-w-4xl animate-pulse rounded-2xl bg-white p-6 shadow-md">
+            <div className="h-8 w-1/2 rounded bg-gray-200" />
+            <div className="mt-6 space-y-3">
+              <div className="h-4 w-2/3 rounded bg-gray-200" />
+              <div className="h-4 w-1/2 rounded bg-gray-200" />
+              <div className="h-4 w-3/4 rounded bg-gray-200" />
             </div>
           </div>
-          <Button type="submit" form="clinic-edit-form" className="btn-primary" disabled={loading}>
-            <Save className="w-5 h-5 mr-2" />
-            Salvar
-          </Button>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <form id="clinic-edit-form" onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nome Fantasia</Label>
-                <Input value={form.nome_fantasia} onChange={(e) => setForm((p) => ({ ...p, nome_fantasia: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Razão Social</Label>
-                <Input value={form.razao_social} onChange={(e) => setForm((p) => ({ ...p, razao_social: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>CNPJ</Label>
-                <Input value={form.cnpj} onChange={(e) => setForm((p) => ({ ...p, cnpj: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Telefone</Label>
-                <Input value={form.telefone} onChange={(e) => setForm((p) => ({ ...p, telefone: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Input value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))} />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t">
-              <div className="text-sm font-semibold text-gray-900 mb-3">Endereço</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>CEP</Label>
-                  <Input value={form.endereco.cep} onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, cep: e.target.value } }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Logradouro</Label>
-                  <Input
-                    value={form.endereco.logradouro}
-                    onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, logradouro: e.target.value } }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Número</Label>
-                  <Input value={form.endereco.numero} onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, numero: e.target.value } }))} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Complemento</Label>
-                  <Input
-                    value={form.endereco.complemento}
-                    onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, complemento: e.target.value } }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bairro</Label>
-                  <Input value={form.endereco.bairro} onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, bairro: e.target.value } }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.endereco.cidade} onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, cidade: e.target.value } }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Input value={form.endereco.estado} onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, estado: e.target.value } }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>País</Label>
-                  <Input value={form.endereco.pais} onChange={(e) => setForm((p) => ({ ...p, endereco: { ...p.endereco, pais: e.target.value } }))} />
-                </div>
-              </div>
-            </div>
-          </form>
-        </div>
+        ) : (
+          <ClinicForm
+            formId="clinic-edit-form"
+            values={form}
+            onSubmit={submit}
+            onFieldChange={updateClinicField}
+            onAddressFieldChange={updateAddressField}
+            loading={loading}
+            bannerTitle="Editar clinica"
+            bannerDescription="Edite os dados mantendo o payload atual e o mesmo layout do cadastro."
+            footer={
+              <ClinicFormFooter
+                secondaryLabel="Cancelar"
+                primaryLabel={loading ? "Salvando..." : "Salvar"}
+                primaryType="submit"
+                onSecondaryClick={() => navigate(`/clinicas/detalhes/${id}`)}
+                loading={loading}
+                primaryIcon={Save}
+                secondaryIcon={X}
+              />
+            }
+          />
+        )}
       </div>
     </Layout>
   );

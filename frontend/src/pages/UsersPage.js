@@ -7,10 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import ClinicMultiSelect from "../components/ClinicMultiSelect";
+import UserForm from "../components/UserForm";
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [professionals, setProfessionals] = useState([]);
+  const [clinics, setClinics] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
@@ -23,13 +26,25 @@ export default function UsersPage() {
     password: "",
     user_type: "consultor",
     professional_id: "",
-    is_admin: false
+    is_admin: false,
+    clinic_id: null
   });
 
   useEffect(() => {
     loadUsers();
     loadProfessionals();
+    loadClinics();
   }, []);
+
+  const loadClinics = async () => {
+    try {
+      // Usando endpoint existente para buscar as clínicas
+      const response = await api.get("/master/clinics");
+      setClinics(response.data || []);
+    } catch (error) {
+      console.error("Erro ao carregar clínicas");
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -56,7 +71,8 @@ export default function UsersPage() {
       email: user.email,
       user_type: user.user_type || "consultor",
       professional_id: user.professional_id || "",
-      is_admin: user.role?.is_admin || false
+      is_admin: user.role?.is_admin || false,
+      clinic_id: user.clinic_id || (user.clinics && user.clinics.length > 0 ? (user.clinics[0].clinicId || user.clinics[0].id) : null)
     });
     setShowDialog(true);
   };
@@ -69,47 +85,70 @@ export default function UsersPage() {
       password: "",
       user_type: "consultor",
       professional_id: "",
-      is_admin: false
+      is_admin: false,
+      clinic_id: null
     });
     setShowDialog(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (submittedFormData) => {
+    console.log("Submit data:", submittedFormData);
     try {
       if (editingUser) {
         // Editar usuário existente
         const updateData = {
-          name: formData.name,
-          email: formData.email,
-          user_type: formData.user_type,
-          professional_id: formData.professional_id,
-          is_admin: formData.is_admin
+          name: submittedFormData.name,
+          email: submittedFormData.email,
+          user_type: submittedFormData.user_type,
+          professional_id: submittedFormData.professional_id,
+          is_admin: submittedFormData.is_admin,
+          clinic_id: submittedFormData.clinic_id
         };
+        console.log("Update user payload:", updateData);
         await api.put(`/users/${editingUser.id}`, updateData);
         toast.success("Usuário atualizado!");
       } else {
         // Criar novo usuário
-        if (!formData.password) {
+        if (!submittedFormData.password) {
           toast.error("Senha é obrigatória para novo usuário");
           return;
         }
-        await api.post("/auth/register", formData);
+        
+        const registerData = {
+          name: submittedFormData.name,
+          email: submittedFormData.email,
+          password: submittedFormData.password,
+          user_type: submittedFormData.user_type,
+          professional_id: submittedFormData.professional_id || null,
+          is_admin: submittedFormData.is_admin,
+          clinic_id: submittedFormData.clinic_id || null
+        };
+        
+        console.log("Register user payload:", registerData);
+        await api.post("/auth/register", registerData);
         toast.success("Usuário criado com sucesso!");
       }
       setShowDialog(false);
       setEditingUser(null);
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-        user_type: "consultor",
-        professional_id: "",
-        is_admin: false
-      });
       loadUsers();
     } catch (error) {
-      const errorMsg = error.response?.data?.detail || (editingUser ? "Erro ao atualizar usuário" : "Erro ao criar usuário");
+      console.error("ERRO COMPLETO DO BACKEND:", error);
+      console.log("STATUS:", error.response?.status);
+      console.log("RESPONSE BODY:", error.response?.data);
+
+      let errorMsg = editingUser ? "Erro ao atualizar usuário" : "Erro ao criar usuário";
+      
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMsg = error.response.data.detail;
+        } else if (Array.isArray(error.response.data.detail)) {
+          // Tratar erros de validação do Pydantic (array de erros)
+          errorMsg = error.response.data.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(' | ');
+        } else {
+          errorMsg = JSON.stringify(error.response.data.detail);
+        }
+      }
+
       toast.error(errorMsg);
     }
   };
@@ -144,7 +183,8 @@ export default function UsersPage() {
       password: "",
       user_type: "consultor",
       professional_id: "",
-      is_admin: false
+      is_admin: false,
+      clinic_id: null
     });
   };
 
@@ -257,79 +297,13 @@ export default function UsersPage() {
             <DialogHeader>
               <DialogTitle>{editingUser ? "Editar Usuário" : "Adicionar Novo Usuário"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label>Nome *</Label>
-                <Input 
-                  value={formData.name} 
-                  onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                  required 
-                  placeholder="Nome completo do usuário"
-                />
-              </div>
-              <div>
-                <Label>Email *</Label>
-                <Input 
-                  type="email" 
-                  value={formData.email} 
-                  onChange={(e) => setFormData({...formData, email: e.target.value})} 
-                  required 
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-              {!editingUser && (
-                <div>
-                  <Label>Senha *</Label>
-                  <Input 
-                    type="password" 
-                    value={formData.password} 
-                    onChange={(e) => setFormData({...formData, password: e.target.value})} 
-                    required 
-                    placeholder="Mínimo 6 caracteres"
-                    minLength={6}
-                  />
-                </div>
-              )}
-              <div>
-                <Label>Tipo de Usuário</Label>
-                <select
-                  className="input-field"
-                  value={formData.user_type}
-                  onChange={(e) => setFormData({...formData, user_type: e.target.value})}
-                >
-                  <option value="admin">Super Usuário</option>
-                  <option value="consultor">Consultor</option>
-                  <option value="profissional">Profissional</option>
-                </select>
-              </div>
-              {formData.user_type === "profissional" && (
-                <div>
-                  <Label>Profissional Vinculado</Label>
-                  <select
-                    className="input-field"
-                    value={formData.professional_id}
-                    onChange={(e) => setFormData({...formData, professional_id: e.target.value})}
-                  >
-                    <option value="">Selecione um profissional</option>
-                    {professionals.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="is_admin"
-                  checked={formData.is_admin}
-                  onChange={(e) => setFormData({...formData, is_admin: e.target.checked})}
-                />
-                <Label htmlFor="is_admin">Permissão de Administrador</Label>
-              </div>
-              <Button type="submit" className="w-full btn-primary">
-                {editingUser ? "Salvar Alterações" : "Criar Usuário"}
-              </Button>
-            </form>
+            <UserForm 
+              initialData={editingUser}
+              professionals={professionals}
+              clinics={clinics}
+              onSubmit={handleSubmit}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
 

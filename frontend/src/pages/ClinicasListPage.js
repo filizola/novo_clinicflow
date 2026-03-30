@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useTenant } from "../contexts/TenantContext";
 import { toast } from "sonner";
 import ClinicasListView from "../components/ClinicasListView";
+import { emptyAddress, emptyClinicForm } from "../components/clinic-form/clinicFormState";
 
 function normalizeText(value) {
   return String(value || "")
@@ -12,32 +13,14 @@ function normalizeText(value) {
     .toLowerCase();
 }
 
-const emptyAddress = {
-  cep: "",
-  logradouro: "",
-  numero: "",
-  complemento: "",
-  bairro: "",
-  cidade: "",
-  estado: "",
-  pais: "BR"
-};
-
-const emptyClinicForm = {
-  nome_fantasia: "",
-  razao_social: "",
-  cnpj: "",
-  telefone: "",
-  email: "",
-  status: "active",
-  endereco: { ...emptyAddress }
-};
+import { unmask } from "../utils/masks";
 
 export default function ClinicasListPage() {
   const navigate = useNavigate();
   const { isMaster } = useTenant();
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [clinics, setClinics] = useState([]);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -58,8 +41,19 @@ export default function ClinicasListPage() {
   const submitClinic = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    const payload = {
+      ...clinicForm,
+      cnpj: unmask(clinicForm.cnpj),
+      telefone: unmask(clinicForm.telefone),
+      endereco: {
+        ...clinicForm.endereco,
+        cep: unmask(clinicForm.endereco?.cep)
+      }
+    };
+
     try {
-      const res = await api.post("/master/clinics", clinicForm);
+      const res = await api.post("/master/clinics", payload);
       toast.success("Clínica cadastrada");
       setShowClinicDialog(false);
       await loadClinics();
@@ -73,12 +67,15 @@ export default function ClinicasListPage() {
 
   const loadClinics = async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await api.get("/master/clinics");
       setClinics(res.data || []);
       setPage(1);
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Erro ao carregar clínicas");
+      const message = e.response?.data?.detail || "Erro ao carregar clínicas";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -128,6 +125,7 @@ export default function ClinicasListPage() {
     <ClinicasListView
       isMaster={isMaster}
       loading={loading}
+      error={error}
       clinics={clinics}
       datalistId={datalistId}
       query={query}

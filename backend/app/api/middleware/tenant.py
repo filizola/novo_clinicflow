@@ -25,12 +25,11 @@ async def tenant_context_middleware(request: Request, call_next):
                 secret=request.app.state.jwt_secret,
                 algorithm=request.app.state.jwt_algorithm,
             )
+            request.state.user_id = payload.get("sub")
+            request.state.clinic_id = payload.get("clinic_id") or request.app.state.default_clinic_id
+            request.state.roles = normalize_roles(payload.get("roles"))
         except JwtError:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        request.state.user_id = payload.get("sub")
-        request.state.clinic_id = payload.get("clinic_id") or request.app.state.default_clinic_id
-        request.state.roles = normalize_roles(payload.get("roles"))
+            pass
 
     return await call_next(request)
 

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { Toaster } from "sonner";
+import ProtectedRoute from "./components/ProtectedRoute";
 import "@/App.css";
 import "@/index.css";
 
@@ -65,12 +66,12 @@ function App() {
             <Route path="/medical-records" element={<PrivateRoute><MedicalRecordsPage /></PrivateRoute>} />
             <Route path="/reports" element={<PrivateRoute><ReportsPage /></PrivateRoute>} />
             <Route path="/revenue" element={<PrivateRoute><RevenuePage /></PrivateRoute>} />
-            <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
-          <Route path="/admin-master" element={<PrivateRoute><AdminMasterClinicsPage /></PrivateRoute>} />
-          <Route path="/admin-master/clinics/:clinicId" element={<PrivateRoute><AdminMasterClinicDetailPage /></PrivateRoute>} />
-          <Route path="/clinicas" element={<PrivateRoute><ClinicasListPage /></PrivateRoute>} />
-          <Route path="/clinicas/detalhes/:id" element={<PrivateRoute><ClinicasDetalhesPage /></PrivateRoute>} />
-          <Route path="/clinicas/editar/:id" element={<PrivateRoute><ClinicasEditarPage /></PrivateRoute>} />
+            <Route path="/users" element={<PrivateRoute><ProtectedRoute><UsersPage /></ProtectedRoute></PrivateRoute>} />
+          <Route path="/admin-master" element={<PrivateRoute><ProtectedRoute><AdminMasterClinicsPage /></ProtectedRoute></PrivateRoute>} />
+          <Route path="/admin-master/clinics/:clinicId" element={<PrivateRoute><ProtectedRoute><AdminMasterClinicDetailPage /></ProtectedRoute></PrivateRoute>} />
+          <Route path="/clinicas" element={<PrivateRoute><ProtectedRoute><ClinicasListPage /></ProtectedRoute></PrivateRoute>} />
+          <Route path="/clinicas/detalhes/:id" element={<PrivateRoute><ProtectedRoute><ClinicasDetalhesPage /></ProtectedRoute></PrivateRoute>} />
+          <Route path="/clinicas/editar/:id" element={<PrivateRoute><ProtectedRoute><ClinicasEditarPage /></ProtectedRoute></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
             <Route path="/webhook-test" element={<PrivateRoute><WebhookTestPage /></PrivateRoute>} />
             <Route path="/tunnel-webhook" element={<PrivateRoute><NgrokWebhookPage /></PrivateRoute>} />
